@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import Navbar from "../components/Navbar";
+import { ProfileModal } from "../components/ProfileModal";
 import MessageInput from "../components/MessageInput";
 import { Message } from "../components/Message";
+import { sendMessageToChatbot } from "../api/api";
 import "../style/chat.css";
-
-import Profile from "../components/Profile"
 
 export default function App() {
   const [messages, setMessages] = useState([
@@ -15,17 +16,11 @@ export default function App() {
     },
   ]);
 
-  const messagesEndRef = useRef(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSendMessage = (content) => {
+  const handleSendMessage = async (content) => {
     if (!content.trim()) return;
 
-    // Add user message
     const userMessage = {
       id: Date.now().toString(),
       content,
@@ -35,46 +30,40 @@ export default function App() {
 
     setMessages((prev) => [...prev, userMessage]);
 
-    // Simulate bot response after a short delay
-    setTimeout(() => {
+    try {
+      const response = await sendMessageToChatbot(content);
       const botMessage = {
         id: (Date.now() + 1).toString(),
-        content: `Lorem ipsum dolor sit amet consectetur adipisicing elit. Earum dolorum recusandae optio commodi. Quos quisquam reprehenderit inventore autem natus modi labore corporis doloremque. Perferendis, sapiente eius et quibusdam sunt dolor.: "${content}"`,
+        content: response.reply || "I'm sorry, I didn't understand that.",
         sender: "bot",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, botMessage]);
-    }, 1000);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) => [
+        ...prev,
+        { id: (Date.now() + 1).toString(), content: "Failed to get a response. Please try again.", sender: "bot", timestamp: new Date() }
+      ]);
+    }
   };
 
-
-  const [submitt, setSubmitt] = useState(false)
   return (
-    <>
-      <Profile
-        setSubmitt={setSubmitt}
-      />
-      {submitt &&
-        <div className="chat-container">
-          <header className="chat-header">
-            <h1 className="chat-title">Chat Application</h1>
-          </header>
+    <div className="chat-container">
+      <Navbar onOpenProfile={() => setIsProfileOpen(true)} />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
 
-          <main className="chat-main">
-            <div className="chat-box">
-              <div className="chat-messages">
-                {messages.map((message) => (
-                  <Message key={message.id} message={message} />
-                ))}
-                <div ref={messagesEndRef} />
-              </div>
-              <MessageInput onSendMessage={handleSendMessage} />
-            </div>
-          </main>
+      <main className="chat-main">
+        <div className="chat-box">
+          <div className="chat-messages">
+            {messages.map((message) => (
+              <Message key={message.id} message={message} />
+            ))}
+          </div>
+          <MessageInput onSendMessage={handleSendMessage} />
         </div>
-      }
-
-    </>
+      </main>
+    </div>
   );
 }
